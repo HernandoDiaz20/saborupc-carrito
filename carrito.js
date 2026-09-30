@@ -39,7 +39,7 @@
   function publicarEstado() {
     const cantidad = items.reduce((acc, it) => acc + it.cantidad, 0);
     window.dispatchEvent(new CustomEvent('carrito:actualizado', {
-      detail: { cantidad: cantidad, total: total() }
+      detail: { version: 1, cantidad: cantidad, total: total() }
     }));
   }
 
@@ -83,7 +83,16 @@
       publicarEstado();
       pintar();
     } else if (e.target.matches('.car-confirmar')) {
-      mensaje = 'Pedido confirmado por ' + pesos.format(total()) + '. ¡Gracias!';
+      const totalActual = total();
+      mensaje = 'Pedido confirmado por ' + pesos.format(totalActual) + '. ¡Gracias!';
+      window.dispatchEvent(new CustomEvent('pedido:confirmado', {
+        detail: {
+          version: 1,
+          id: 'PED-' + Date.now(),
+          items: [...items],
+          total: totalActual
+        }
+      }));
       items.length = 0;
       publicarEstado();
       pintar();

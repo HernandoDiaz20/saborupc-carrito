@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Prueba de Contrato - Pedidos/Carrito</title>
+  <style>
+    body { font-family: sans-serif; }
+    .pass { color: green; }
+    .fail { color: red; }
+  </style>
+</head>
+<body>
+  <h1>Prueba de Contrato: Pedidos/Carrito</h1>
+  <ul id="resultados"></ul>
+  <div id="test-root" style="display:none;"></div>
+  <div id="test-pedidos" style="display:none;"></div>
+
+  <script src="carrito.js"></script>
+  <script src="pedidos.js"></script>
+  <script>
+    function test() {
+      const res = document.getElementById('resultados');
+      function assert(cond, msg) {
+        const li = document.createElement('li');
+        li.textContent = (cond ? '✓ ' : '✗ ') + msg;
+        li.className = cond ? 'pass' : 'fail';
+        res.appendChild(li);
+        if (!cond) console.error('Fallo:', msg);
+      }
+
+      assert(typeof window.renderCarrito === 'function', 'Expone window.renderCarrito');
+      assert(typeof window.unmountCarrito === 'function', 'Expone window.unmountCarrito');
+      assert(typeof window.renderPedidos === 'function', 'Expone window.renderPedidos');
+      assert(typeof window.unmountPedidos === 'function', 'Expone window.unmountPedidos');
+
+      // Test carrito
+      const root = document.getElementById('test-root');
+      
+      let evActualizado = null;
+      let evConfirmado = null;
+      window.addEventListener('carrito:actualizado', e => evActualizado = e.detail);
+      window.addEventListener('pedido:confirmado', e => evConfirmado = e.detail);
+
+      window.renderCarrito('test-root');
+      assert(root.innerHTML.includes('carrito') || root.innerHTML.includes('car-vacio'), 'El carrito genera contenido');
+
+      // Agregar algo
+      window.dispatchEvent(new CustomEvent('carrito:agregar', { detail: { id: 1, nombre: 'Test', precio: 100 } }));
+      assert(evActualizado && evActualizado.cantidad === 1, 'Publica carrito:actualizado al agregar');
+
+      // Test confirmacion
+      const btn = root.querySelector('.car-confirmar');
+      if (btn) {
+        btn.click();
+        assert(evConfirmado !== null, 'Publica pedido:confirmado');
+        if (evConfirmado) {
+          assert(evConfirmado.version === 1, 'pedido:confirmado tiene version 1');
+          assert(typeof evConfirmado.id === 'string', 'pedido:confirmado tiene id');
+          assert(Array.isArray(evConfirmado.items), 'pedido:confirmado tiene items array');
+          assert(typeof evConfirmado.total === 'number', 'pedido:confirmado tiene total number');
+        }
+      }
+
+      // Test pedidos
+      const rootP = document.getElementById('test-pedidos');
+      let evEstado = null;
+      window.addEventListener('pedido:estado', e => evEstado = e.detail);
+
+      window.renderPedidos('test-pedidos');
+      assert(rootP.innerHTML.includes('Seguimiento'), 'Pedidos genera contenido');
+      
+      window.dispatchEvent(new CustomEvent('pedido:confirmado', { detail: { id: 'T1', total: 100 } }));
+      assert(rootP.innerHTML.includes('T1'), 'Pedidos reacciona a pedido:confirmado');
+
+      // Check event later (simulate it quickly without waiting 5s for the test)
+      // Actually we will just trust it or wait 5s. To avoid blocking, let's just show a message.
+      const li = document.createElement('li');
+      li.textContent = '... Esperando 5s para probar pedido:estado';
+      res.appendChild(li);
+
+      setTimeout(() => {
+         li.remove();
+         assert(evEstado !== null, 'Pedidos publica pedido:estado después del intervalo');
+         if(evEstado) {
+             assert(evEstado.version === 1, 'pedido:estado tiene version 1');
+             assert(evEstado.id === 'T1', 'pedido:estado id coincide');
+             assert(typeof evEstado.estado === 'string', 'pedido:estado tiene estado string');
+         }
+      }, 5500);
+    }
+    setTimeout(test, 100);
+  </script>
+</body>
+</html>
